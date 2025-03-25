@@ -18,17 +18,8 @@ def lambda_handler(event, context):
     try:
         body = json.loads(event["body"])
 
-        name = body.get("name")
-        price = float(body.get("price"))
-        currency = body.get("currency")
-
-        # Insert into MongoDB
-        product = {
-            "name": name,
-            "price": price,
-            "currency": currency
-        }
-        result = collection.insert_one(product)
+        # Insert rest of the key-value pairs as-is
+        result = collection.insert_one(body)
         product_id = str(result.inserted_id)
 
         # Upload Base64 image to S3 if provided
