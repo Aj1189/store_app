@@ -30,6 +30,7 @@ document.getElementById("editProductForm").addEventListener("submit", async (e) 
 
   const name = document.getElementById("name").value;
   const price = document.getElementById("price").value;
+  const quantity = document.getElementById("quantity").value;
   const currency = document.getElementById("currency").value;
 
   const imageInput = document.getElementById("image");
@@ -45,6 +46,7 @@ document.getElementById("editProductForm").addEventListener("submit", async (e) 
       const payload = JSON.stringify({
         name,
         price,
+        quantity,
         currency,
         image_base64: imageBase64,
         image_type: file.type

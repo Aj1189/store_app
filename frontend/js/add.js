@@ -8,6 +8,7 @@ form?.addEventListener("submit", async (e) => {
 
   const name = document.getElementById("name").value;
   const price = document.getElementById("price").value;
+  const quantity = document.getElementById("quantity").value;
   const currency = document.getElementById("currency").value;
   const imageInput = document.getElementById("image");
   const imageFile = imageInput.files[0];
@@ -28,6 +29,7 @@ form?.addEventListener("submit", async (e) => {
       const payload = {
         name,
         price,
+        quantity,
         currency,
         image_base64: base64Image,
         image_name: imageFile.name,
