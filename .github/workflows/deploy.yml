@@ -1,0 +1,114 @@
+name: Deploy AWS Lambda & API Gateway
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        id: checkout
+        continue-on-error: false
+
+      - name: Set Up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.8'
+        id: setup-python
+        continue-on-error: false
+
+      - name: Configure AWS CLI
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region ${{ secrets.AWS_REGION }}
+        id: configure-aws
+        continue-on-error: false
+
+      - name: Install Dependencies & Package Each Lambda Function
+        run: |
+          for file in lambda_functions/*.py; do
+            function_name=$(basename "$file" .py)
+            zip_name="${function_name}.zip"
+
+            echo "Packaging ${zip_name}..."
+
+            # Create a clean package directory
+            rm -rf package
+            mkdir -p package
+
+            # Install dependencies inside the package
+            pip install --target package -r lambda_functions/requirements.txt || true
+
+            # Copy the Lambda function file into the package
+            cp "$file" package/
+
+            # Ensure correct ZIP structure (Flat: handler + dependencies)
+            cd package
+            zip -r "../${zip_name}" .
+            cd ..
+
+            # Upload the ZIP to S3
+            aws s3 cp "${zip_name}" "s3://${{ secrets.S3_BUCKET }}/${zip_name}"
+
+            # Clean up
+            rm -rf package "${zip_name}"
+          done
+        id: package-lambda
+        continue-on-error: false
+
+      - name: Export Environment Variables
+        run: |
+          echo "S3_BUCKET=${{ secrets.S3_BUCKET }}" >> $GITHUB_ENV
+          echo "MONGO_URI=${{ secrets.MONGO_URI }}" >> $GITHUB_ENV
+        id: export-env
+        continue-on-error: false
+
+      - name: Debug Variables
+        run: |
+          echo "Using S3_BUCKET: $S3_BUCKET"
+          echo "Using MONGO_URI: $MONGO_URI"
+        id: debug-vars
+        continue-on-error: false
+
+      - name: Deploy CloudFormation Stack
+        run: |
+          aws cloudformation deploy \
+            --stack-name MongoDBProductAPI \
+            --template-file cloudformation/serverless-api.yaml \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --parameter-overrides \
+              MongoDBConnectionString=$MONGO_URI \
+              LambdaS3Bucket=$S3_BUCKET
+        id: deploy-cloudformation
+        continue-on-error: false
+
+      - name: Check Deployment Status
+        run: |
+          echo "### Stage Status Summary ###"
+          echo "Checkout Repository: ${{ steps.checkout.outcome }}"
+          echo "Set Up Python: ${{ steps.setup-python.outcome }}"
+          echo "Configure AWS CLI: ${{ steps.configure-aws.outcome }}"
+          echo "Package Lambda Functions: ${{ steps.package-lambda.outcome }}"
+          echo "Export Environment Variables: ${{ steps.export-env.outcome }}"
+          echo "Debug Variables: ${{ steps.debug-vars.outcome }}"
+          echo "Deploy CloudFormation Stack: ${{ steps.deploy-cloudformation.outcome }}"
+
+          if [[ "${{ steps.checkout.outcome }}" != "success" ||
+                "${{ steps.setup-python.outcome }}" != "success" ||
+                "${{ steps.configure-aws.outcome }}" != "success" ||
+                "${{ steps.package-lambda.outcome }}" != "success" ||
+                "${{ steps.export-env.outcome }}" != "success" ||
+                "${{ steps.debug-vars.outcome }}" != "success" ||
+                "${{ steps.deploy-cloudformation.outcome }}" != "success" ]]; then
+            echo "❌ Deployment Failed!"
+            exit 1
+          else
+            echo "✅ Deployment Successful!"
+          fi
+        id: check-status
