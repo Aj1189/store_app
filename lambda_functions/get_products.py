@@ -23,7 +23,7 @@ s3_client = boto3.client("s3")
 
 def lambda_handler(event, context):
     try:
-        products = list(collection.find({}, {"_id": 1, "name": 1, "price": 1, "currency": 1}))
+        products = list(collection.find({}))
 
         for product in products:
             product_id = str(product["_id"])

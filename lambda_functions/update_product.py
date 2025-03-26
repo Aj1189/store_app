@@ -63,8 +63,7 @@ def lambda_handler(event, context):
                 "updated_product": {
                     "_id": product_id,
                     "name": name,
-                    "price": price,
-                    "currency": currency
+                    **body
                 }
             })
         }
